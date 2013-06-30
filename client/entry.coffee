@@ -1,3 +1,4 @@
+_ = require 'underscore'
 _s = require 'underscore.string'
 
 socket = io.connect()
@@ -12,21 +13,16 @@ $ ->
   
   dom = document.body
   
-  table = $ '<table class="table table-striped">'
-  table.appendTo dom
-  
   fields = {}
   fieldsets = {}
   
-  # date = (field) ->
-  #   for key in ['day', 'month', 'year']
-  #     fields.push key: "#{field}-#{key}"
+  update = null
   
   fieldset = (key, callback, args = {}) ->
     
     args.display ?= yes
     
-    set = {}
+    set = args
     
     set.fields = {}
     
@@ -50,7 +46,7 @@ $ ->
   
   field 'title'
   
-  fieldset 'name', (field) ->
+  fieldset 'names', (field) ->
     field 'first-name'
     field 'last-name'
   
@@ -121,8 +117,64 @@ $ ->
     field 'friend-email'
     field 'friend-phone'
     field 'other-referral'
-    field 'hideit'
+    # field 'hideit'
   , display: no
+  
+  config = $ '<a href="#">config</a>'
+  config.appendTo dom
+  config.click (event) ->
+    event.preventDefault()
+    ($ '#config').toggle()
+  
+  do ->
+    table = $ '<table id="config" class="table table-striped">'
+    table.hide()
+    table.appendTo dom
+    
+    header = $ '<thead>'
+    header.appendTo table
+    
+    headerRow = $ '<tr>'
+    headerRow.appendTo header
+    
+    # for key, fieldset of fieldsets
+    #   headerCell = $ '<th>'
+    #   headerCell.text _s.humanize key
+    #   headerCell.appendTo headerRow
+    
+    headerRow.append $ '<th>show</th>'
+    headerRow.append $ '<th>key</th>'
+    headerRow.append $ '<th>fields</th>'
+    
+    body = $ '<tbody>'
+    body.appendTo table
+    
+    for key, fieldset of fieldsets then do (key, fieldset) ->
+      
+      row = $ '<tr>'
+      row.appendTo body
+      
+      showCell = $ """<td><input type="checkbox" /></td>"""
+      showCell.find('input').prop 'checked', fieldset.display
+      
+      showCell.find('input').change ->
+        display = showCell.find('input').prop 'checked'
+        fieldset = fieldsets[key]
+        fieldset.display = display
+        for fieldKey, field of fieldset.fields
+          field.display = display
+        update()
+      
+      showCell.appendTo row
+      row.append $ """<td>#{_s.humanize key}</td>"""
+      keys = _.pluck (_.values fieldset.fields), 'key'
+      keys = (_s.humanize k for k in keys)
+      row.append $ """<td>#{keys.join ', '}</td>"""
+    
+    return
+  
+  table = $ '<table class="table table-striped">'
+  table.appendTo dom
   
   header = $ '<thead>'
   header.appendTo table
@@ -130,15 +182,17 @@ $ ->
   headerRow = $ '<tr>'
   headerRow.appendTo header
   
-  for fieldKey, field of fields when field.display
-    headerCell = $ '<th>'
-    headerCell.text _s.humanize field.key
-    headerCell.appendTo headerRow
-  
   body = $ '<tbody>'
   body.appendTo table
   
   update = ->
+    
+    headerRow.empty()
+    
+    for fieldKey, field of fields when field.display
+      headerCell = $ '<th>'
+      headerCell.text _s.humanize field.key
+      headerCell.appendTo headerRow
     
     body.empty()
     
@@ -151,6 +205,8 @@ $ ->
         cell = $ '<td>'
         cell.text enrolment[field.key]
         cell.appendTo row
+    
+    return
   
   socket.emit 'get', 'enrolments', (error, enrolments) ->
     
