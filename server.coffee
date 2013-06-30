@@ -10,7 +10,7 @@ express.get '/', (req, res, next) ->
   
   res.send 200
 
-express.get '/files'
+express.get '/files', (req, res, next) ->
   
   fs.readdir config.root, (error, files) ->
     
