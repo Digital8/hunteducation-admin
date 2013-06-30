@@ -6,11 +6,11 @@ config = require './config.coffee'
 
 app = express()
 
-express.get '/', (req, res, next) ->
+app.get '/', (req, res, next) ->
   
   res.send 200
 
-express.get '/files', (req, res, next) ->
+app.get '/files', (req, res, next) ->
   
   fs.readdir config.root, (error, files) ->
     
