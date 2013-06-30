@@ -13,6 +13,14 @@
     "url": "https://github.com/Digital8/hunteducation-admin/issues"
   },
   "dependencies": {
-    "express": "~3.3.1"
+    "express": "~3.3.1",
+    "optimist": "~0.6.0",
+    "jade": "~0.32.0",
+    "caching-coffeeify": "~0.2.0",
+    "browserify": "~2.22.0",
+    "concat-stream": "~1.0.0",
+    "mongoose": "~3.6.13",
+    "node-uuid": "~1.4.0",
+    "socket.io": "~0.9.16"
   }
 }
