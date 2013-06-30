@@ -12,15 +12,21 @@ module.exports = class Set extends Entity
   
   new: (args = {}) ->
     
+    return new @type args
+  
+  create: (args = {}) ->
+    
     instance = new @type args
     
-    id = instance[@key]
+    id = instance[@key].toString()
     
     @entities[id] = instance
+    
+    return instance
   
   ensure: (instance) ->
     
-    id = instance[@key]
+    id = instance[@key].toString()
     
     unless @entities[id]?
       @entities[id] = instance

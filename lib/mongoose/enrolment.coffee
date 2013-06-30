@@ -5,3 +5,5 @@ module.exports = mongoose.model 'Enrolment', new mongoose.Schema
   'first-name': String
   'last-name': String
   # created_at: { type: Date, default: Date.now }
+,
+  id: false

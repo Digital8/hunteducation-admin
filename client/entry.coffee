@@ -13,11 +13,53 @@ $ ->
   table = $ '<table class="table table-striped">'
   table.appendTo dom
   
-  fields = [
-    {key: 'title'}
-    {key: 'first-name'}
-    {key: 'last-name'}
-  ]
+  fields = []
+  
+  date = (field) ->
+    for key in ['day', 'month', 'year']
+      fields.push key: "#{field}-#{key}"
+  
+  fields.push {key: '_id'}
+  fields.push {key: 'title'}
+  fields.push {key: 'first-name'}
+  fields.push {key: 'last-name'}
+  fields.push {key: 'dob-day'}
+  fields.push {key: 'dob-month'}
+  fields.push {key: 'dob-year'}
+  fields.push {key: 'gender'}
+  fields.push {key: 'health_cover'}
+  fields.push {key: 'disability'}
+  fields.push {key: 'agency'}
+  fields.push {key: 'address'}
+  fields.push {key: 'state'}
+  fields.push {key: 'postcode'}
+  fields.push {key: 'email'}
+  fields.push {key: 'mobile'}
+  fields.push {key: 'phone'}
+  fields.push {key: 'birth-country'}
+  fields.push {key: 'citizenship-country'}
+  fields.push {key: 'passport'}
+  fields.push {key: 'visa-485'}
+  date 'visa-expiry'
+  fields.push {key: 'current-visa-subclass'}
+  
+  for key in ['australia', 'overseas', 'ielts']
+    date "#{key}-education-commenced"
+    fields.push {key: "#{key}-education-course-name"}
+    fields.push {key: "#{key}-education-institute"}
+  
+  fields.push {key: 'qualification-assessment'}
+  fields.push {key: 'assessing-body'}
+  date 'assessment'
+  fields.push {key: 'subjects-remaining'}
+  fields.push {key: 'referral-where'}
+  fields.push {key: 'radio-station'}
+  fields.push {key: 'print-media'}
+  fields.push {key: 'friend-name'}
+  fields.push {key: 'friend-email'}
+  fields.push {key: 'friend-phone'}
+  fields.push {key: 'other-referral'}
+  fields.push {key: 'hideit'}
   
   header = $ '<thead>'
   header.appendTo table
@@ -55,6 +97,6 @@ $ ->
   
   socket.on 'add', (enrolment) ->
     
-    enrolments.entities[enrolment.id] = enrolment
+    db.enrolments.entities[enrolment._id] = enrolment
     
     update()

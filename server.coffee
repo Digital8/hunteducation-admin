@@ -36,7 +36,7 @@ Set = require './lib/set'
 Enrolment = require './lib/enrolment'
 
 db = {}
-db.enrolments = new Set type: Enrolment
+db.enrolments = new Set type: Enrolment, key: '_id'
 
 mongoose.connect "mongodb://#{config.mongo.host}/#{config.mongo.db}"
 
@@ -47,7 +47,7 @@ models.Enrolment.find (error, enrolments) ->
   
   for _enrolment in enrolments
     
-    db.enrolments.new _enrolment
+    instance = db.enrolments.create _enrolment
 
 setInterval ->
   
