@@ -2,7 +2,9 @@ socket = io.connect()
 
 Set = require '../lib/set.coffee'
 
-enrolments = new Set
+db = {}
+
+db.enrolments = new Set
 
 $ ->
   
@@ -31,9 +33,11 @@ $ ->
   body = $ '<tbody>'
   body.appendTo table
   
-  socket.emit 'get', 'enrolments', (error, enrolments) ->
+  update = ->
     
-    for key, enrolment of enrolments
+    body.empty()
+    
+    for key, enrolment of db.enrolments.entities
       
       row = $ '<tr>'
       row.appendTo body
@@ -42,3 +46,15 @@ $ ->
         cell = $ '<td>'
         cell.text enrolment[field.key]
         cell.appendTo row
+  
+  socket.emit 'get', 'enrolments', (error, enrolments) ->
+    
+    db.enrolments.entities = enrolments
+    
+    update()
+  
+  socket.on 'add', (enrolment) ->
+    
+    enrolments.entities[enrolment.id] = enrolment
+    
+    update()

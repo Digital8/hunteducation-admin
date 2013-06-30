@@ -49,6 +49,20 @@ models.Enrolment.find (error, enrolments) ->
     
     db.enrolments.new _enrolment
 
+setInterval ->
+  
+  console.log 'poll'
+  
+  models.Enrolment.find (error, enrolments) ->
+    
+    for _enrolment in enrolments
+      
+      instance = db.enrolments.new _enrolment
+      
+      db.enrolments.ensure instance
+  
+, 3333
+
 # fs.watch root, ->
 #   console.log arguments
 
@@ -73,3 +87,7 @@ io.sockets.on 'connection', (socket) ->
   socket.on 'get', (key, callback) ->
     
     callback null, db[key]?.entities
+  
+db.enrolments.on 'add', (enrolment) ->
+  console.log 'broadcasting enrolment'
+  io.sockets.emit 'add', enrolment

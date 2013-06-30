@@ -17,3 +17,11 @@ module.exports = class Set extends Entity
     id = instance[@key]
     
     @entities[id] = instance
+  
+  ensure: (instance) ->
+    
+    id = instance[@key]
+    
+    unless @entities[id]?
+      @entities[id] = instance
+      @emit 'add', instance
