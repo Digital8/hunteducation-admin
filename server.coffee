@@ -34,16 +34,32 @@ app.use (require './server/browserify')
 Set = require './lib/set'
 
 Enrolment = require './lib/enrolment'
+Location = require './lib/location'
+Intake = require './lib/intake'
 
 db = {}
 db.enrolments = new Set type: Enrolment, key: '_id'
+db.locations = new Set type: Location, key: 'entity_id'
+db.intakes = new Set type: Intake, key: 'entity_id'
 
 mongoose.connect "mongodb://#{config.mongo.host}/#{config.mongo.db}"
+
+mysql = (require 'mysql').createConnection config.mysql
+
+mysql.query "SELECT * FROM enrollments2_location", (error, rows) ->
+  return console.log 'error', error if error?
+  for row in rows
+    db.locations.create row
+
+mysql.query "SELECT * FROM enrollments2_intake", (error, rows) ->
+  return console.log 'error', error if error?
+  for row in rows
+    db.intakes.create row
 
 models =
   Enrolment: require './lib/mongoose/enrolment'
 
-models.Enrolment.find (error, enrolments) ->
+models.Enrolment.where('intake_id').ne(null).exec (error, enrolments) ->
   
   for _enrolment in enrolments
     
@@ -53,7 +69,7 @@ setInterval ->
   
   console.log 'poll'
   
-  models.Enrolment.find (error, enrolments) ->
+  models.Enrolment.where('intake_id').ne(null).exec (error, enrolments) ->
     
     for _enrolment in enrolments
       
@@ -62,9 +78,6 @@ setInterval ->
       db.enrolments.ensure instance
   
 , 3333
-
-# fs.watch root, ->
-#   console.log arguments
 
 app.get '/', (req, res, next) ->
   
