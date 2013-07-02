@@ -249,10 +249,41 @@ $ ->
         cell.text field.stringify enrolment[field.key]
         cell.appendTo row
       
-      row.click (event) ->
-        event.preventDefault()
-        socket.emit 'files', enrolment, ->
-          console.log arguments
+      do (row) ->
+        
+        row.click (event) ->
+          
+          if row.data 'expand'
+            (row.data 'expand').remove()
+            (row.data 'expand', null)
+          else
+            event.preventDefault()
+            socket.emit 'files', enrolment, (error, files) ->
+              
+              return console.log error if error?
+              
+              table = $ '<table>'
+              
+              for key, file of files
+                
+                console.log file
+                
+                fileRow = $ '<tr>'
+                fileRow.appendTo table
+                
+                thumbCell = $ '<td>'
+                thumbCell.appendTo fileRow
+                thumb = $ '<img>'
+                thumb.attr src: file.src
+                thumb.css 'max-width': 200, 'max-height': 200
+                thumb.appendTo thumbCell
+              
+              wrapper = $ '<tr>'
+              wrapper.append table
+              
+              row.after wrapper
+              
+              row.data 'expand', wrapper
     
     return
   

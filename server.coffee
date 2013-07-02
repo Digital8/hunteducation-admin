@@ -115,7 +115,20 @@ io.sockets.on 'connection', (socket) ->
     
     console.log 'listing files...', "#{root}/#{emailHash}/#{enrolment.uuid}"
     
-    fs.readdir "#{root}/#{emailHash}/#{enrolment.uuid}", callback
+    fs.readdir "#{root}/#{emailHash}/#{enrolment.uuid}", (error, paths) ->
+      
+      return callback error if error?
+      
+      files = {}
+      
+      for path in paths
+        file =
+          id: uuid()
+          path: path
+          src: "http://54.252.174.152/uploads/#{emailHash}/#{enrolment.uuid}/#{path}"
+        files[file.id] = file
+      
+      callback null, files
   
 db.enrolments.on 'add', (enrolment) ->
   console.log 'broadcasting enrolment'
