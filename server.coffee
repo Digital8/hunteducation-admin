@@ -3,6 +3,7 @@ fs = require 'fs'
 express = require 'express'
 mongoose = require 'mongoose'
 optimist = require 'optimist'
+uuid = require 'node-uuid'
 
 config = require './config.coffee'
 
@@ -59,7 +60,14 @@ mysql.query "SELECT * FROM enrollments2_intake", (error, rows) ->
 models =
   Enrolment: require './lib/mongoose/enrolment'
 
-models.Enrolment.where('intake_id').ne(null).exec (error, enrolments) ->
+fetchEnrolments = (callback) ->
+  
+  models.Enrolment
+    .where('intake_id').ne(null)
+    .where('uuid').ne(null)
+    .exec callback
+
+fetchEnrolments (error, enrolments) ->
   
   for _enrolment in enrolments
     
@@ -67,9 +75,7 @@ models.Enrolment.where('intake_id').ne(null).exec (error, enrolments) ->
 
 setInterval ->
   
-  console.log 'poll'
-  
-  models.Enrolment.where('intake_id').ne(null).exec (error, enrolments) ->
+  fetchEnrolments (error, enrolments) ->
     
     for _enrolment in enrolments
       
@@ -84,22 +90,32 @@ app.get '/', (req, res, next) ->
   res.render 'index'
 
 # app.get '/files', (req, res, next) ->
-  
+
 #   fs.readdir root, (error, files) ->
-    
+
 #     return next error if error?
-    
+
 #     res.send files
 
 server = app.listen 8080
 
-io = (require 'socket.io').listen server
+io = (require 'socket.io').listen server, 'log level': 1
 
 io.sockets.on 'connection', (socket) ->
   
   socket.on 'get', (key, callback) ->
     
     callback null, db[key]?.entities
+  
+  socket.on 'files', (enrolment, callback) ->
+    
+    console.log enrolment
+    
+    emailHash = uuid.v5 ns: '1bf34ef3-a7f8-4dec-aee2-eef4d9b89ccb', data: enrolment.email
+    
+    console.log 'listing files...', "#{root}/#{emailHash}/#{enrolment.uuid}"
+    
+    fs.readdir "#{root}/#{emailHash}/#{enrolment.uuid}", callback
   
 db.enrolments.on 'add', (enrolment) ->
   console.log 'broadcasting enrolment'

@@ -239,7 +239,7 @@ $ ->
       _.where db.enrolments.entities, filters
     else db.enrolments.entities
     
-    for key, enrolment of enrolments
+    for key, enrolment of enrolments then do (key, enrolment) ->
       
       row = $ '<tr>'
       row.appendTo body
@@ -248,6 +248,11 @@ $ ->
         cell = $ '<td>'
         cell.text field.stringify enrolment[field.key]
         cell.appendTo row
+      
+      row.click (event) ->
+        event.preventDefault()
+        socket.emit 'files', enrolment, ->
+          console.log arguments
     
     return
   
