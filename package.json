@@ -24,6 +24,7 @@
     "socket.io": "~0.9.16",
     "underscore.string": "~2.3.1",
     "underscore": "~1.4.4",
-    "mysql": "~2.0.0-alpha8"
+    "mysql": "~2.0.0-alpha8",
+    "async": "~0.2.9"
   }
 }

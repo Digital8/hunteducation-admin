@@ -1,5 +1,6 @@
 _ = require 'underscore'
 _s = require 'underscore.string'
+async = require 'async'
 
 socket = io.connect()
 
@@ -7,6 +8,8 @@ Set = require '../lib/set.coffee'
 
 db = {}
 
+db.locations = new Set
+db.intakes = new Set
 db.enrolments = new Set
 
 $ ->
@@ -15,6 +18,7 @@ $ ->
   
   fields = {}
   fieldsets = {}
+  filters = {}
   
   update = null
   
@@ -26,8 +30,11 @@ $ ->
     
     set.fields = {}
     
-    callback (key) ->
-      map = key: key
+    callback (key, fieldArgs = {}) ->
+      map = fieldArgs
+      map.key = key
+      map.stringify ?= (value) -> value
+      # map.filter ?= null
       for argKey, argValue of args
         map[argKey] = argValue
       set.fields[key] = map
@@ -42,7 +49,17 @@ $ ->
       field key
     , args
   
-  field '_id', display: no
+  field '_id', label: 'ID'
+  
+  fieldset 'intake', (field) ->
+    field 'intake',
+      stringify: (intake) ->
+        intake?.name
+      filter:
+        type: 'select'
+        options: ->
+          db.intakes.entities
+        key: 'intake_id'
   
   field 'title'
   
@@ -54,15 +71,14 @@ $ ->
     field 'dob-day'
     field 'dob-month'
     field 'dob-year'
-  , display: no
   
   field 'gender'
   
-  field 'health_cover'
+  field 'health_cover', display: no
   
-  field 'disability'
+  field 'disability', display: no
   
-  field 'agency'
+  field 'agency', display: no
   
   fieldset 'address', (field) ->
     field 'address'
@@ -76,11 +92,11 @@ $ ->
     field 'phone'
   , display: no
   
-  field 'birth-country'
+  field 'birth-country', display: no
   
-  field 'citizenship-country'
+  field 'citizenship-country', display: no
   
-  field 'passport'
+  field 'passport', display: no
   
   fieldset 'visa', (field) ->
     field 'visa-485'
@@ -127,7 +143,7 @@ $ ->
     ($ '#config').toggle()
   
   do ->
-    table = $ '<table id="config" class="table table-striped">'
+    table = $ '<table id="config" class="table table-striped table-hover table-condensed">'
     table.hide()
     table.appendTo dom
     
@@ -136,11 +152,6 @@ $ ->
     
     headerRow = $ '<tr>'
     headerRow.appendTo header
-    
-    # for key, fieldset of fieldsets
-    #   headerCell = $ '<th>'
-    #   headerCell.text _s.humanize key
-    #   headerCell.appendTo headerRow
     
     headerRow.append $ '<th>show</th>'
     headerRow.append $ '<th>key</th>'
@@ -173,7 +184,7 @@ $ ->
     
     return
   
-  table = $ '<table class="table table-striped">'
+  table = $ '<table class="table table-striped table-hover table-condensed">'
   table.appendTo dom
   
   header = $ '<thead>'
@@ -182,40 +193,96 @@ $ ->
   headerRow = $ '<tr>'
   headerRow.appendTo header
   
+  filterRow = $ '<tr>'
+  filterRow.addClass 'info'
+  filterRow.appendTo header
+  
   body = $ '<tbody>'
   body.appendTo table
   
   update = ->
     
-    headerRow.empty()
+    hydrateEnrolments()
     
+    # labels
+    headerRow.empty()
     for fieldKey, field of fields when field.display
       headerCell = $ '<th>'
-      headerCell.text _s.humanize field.key
+      headerCell.text if field.label?
+        field.label
+      else
+        _s.humanize field.key
       headerCell.appendTo headerRow
+    
+    # filters
+    filterRow.empty()
+    for fieldKey, field of fields when field.display then do (fieldKey, field) ->
+      headerCell = $ '<th>'
+      if field.filter?
+        if field.filter.type is 'select'
+          select = $ '<select class="input-small">'
+          select.appendTo headerCell
+          select.append $ '<option value="">'
+          for key, value of field.filter.options()
+            option = $ '<option>'
+            option.text value.name
+            option.attr value: value.entity_id
+            option.appendTo select
+          select.val filters[field.filter.key]
+          select.change (event) ->
+            filters[field.filter.key] = select.val()
+            update()
+      headerCell.appendTo filterRow
     
     body.empty()
     
-    for key, enrolment of db.enrolments.entities
+    enrolments = if _.size filters
+      _.where db.enrolments.entities, filters
+    else db.enrolments.entities
+    
+    for key, enrolment of enrolments
       
       row = $ '<tr>'
       row.appendTo body
       
       for fieldKey, field of fields when field.display
         cell = $ '<td>'
-        cell.text enrolment[field.key]
+        cell.text field.stringify enrolment[field.key]
         cell.appendTo row
     
     return
   
-  socket.emit 'get', 'enrolments', (error, enrolments) ->
+  hydrateEnrolments = ->
     
-    db.enrolments.entities = enrolments
-    
-    update()
+    for key, enrolment of db.enrolments.entities
+      
+      intake = _.find db.intakes.entities, (intake) ->
+        (parseInt intake.entity_id) is (parseInt enrolment.intake_id)
+      
+      enrolment.intake = intake
   
-  socket.on 'add', (enrolment) ->
+  # start syncing the enrolments
+  # pre - intakes/locations
+  # post - fetched existing enrolments
+  # post - listens for new enrolments
+  syncEnrolments = ->
     
-    db.enrolments.entities[enrolment._id] = enrolment
+    socket.emit 'get', 'enrolments', (error, enrolments) ->
     
-    update()
+      db.enrolments.entities = enrolments
+      
+      update()
+    
+    socket.on 'add', (enrolment) ->
+      
+      db.enrolments.entities[enrolment._id] = enrolment
+      
+      update()
+  
+  # intakes
+  
+  socket.emit 'get', 'intakes', (error, intakes) ->
+    
+    db.intakes.entities = intakes
+    
+    syncEnrolments()
