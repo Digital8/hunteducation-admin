@@ -90,7 +90,6 @@ $ ->
     field 'email'
     field 'mobile'
     field 'phone'
-  , display: no
   
   field 'birth-country', display: no
   
