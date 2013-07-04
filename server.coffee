@@ -47,12 +47,12 @@ mongoose.connect "mongodb://#{config.mongo.host}/#{config.mongo.db}"
 
 mysql = (require 'mysql').createConnection config.mysql
 
-mysql.query "SELECT * FROM enrollments2_location", (error, rows) ->
+mysql.query "SELECT * FROM timetable_location", (error, rows) ->
   return console.log 'error', error if error?
   for row in rows
     db.locations.create row
 
-mysql.query "SELECT * FROM enrollments2_intake", (error, rows) ->
+mysql.query "SELECT * FROM timetable_intake", (error, rows) ->
   return console.log 'error', error if error?
   for row in rows
     db.intakes.create row
@@ -121,7 +121,7 @@ io.sockets.on 'connection', (socket) ->
       
       files = {}
       
-      for path in paths
+      for path in paths when path not in ['userdetails.txt']
         file =
           id: uuid()
           path: path

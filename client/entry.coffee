@@ -1,12 +1,13 @@
 _ = require 'underscore'
 _s = require 'underscore.string'
 async = require 'async'
+moment = require 'moment'
 
 socket = io.connect()
 
 Set = require '../lib/set.coffee'
 
-db = {}
+window.db = db = {}
 
 db.locations = new Set
 db.intakes = new Set
@@ -27,7 +28,7 @@ $ ->
     args.display ?= yes
     
     set = args
-    
+    # set.key = key # wtf
     set.fields = {}
     
     callback (key, fieldArgs = {}) ->
@@ -135,8 +136,11 @@ $ ->
     # field 'hideit'
   , display: no
   
+  enrolmentsList = $ '<div>'
+  enrolmentsList.appendTo dom
+  
   config = $ '<a href="#">config</a>'
-  config.appendTo dom
+  config.appendTo enrolmentsList
   config.click (event) ->
     event.preventDefault()
     ($ '#config').toggle()
@@ -144,7 +148,7 @@ $ ->
   do ->
     table = $ '<table id="config" class="table table-striped table-hover table-condensed">'
     table.hide()
-    table.appendTo dom
+    table.appendTo enrolmentsList
     
     header = $ '<thead>'
     header.appendTo table
@@ -184,7 +188,7 @@ $ ->
     return
   
   table = $ '<table class="table table-striped table-hover table-condensed">'
-  table.appendTo dom
+  table.appendTo enrolmentsList
   
   header = $ '<thead>'
   header.appendTo table
@@ -250,40 +254,9 @@ $ ->
         cell.appendTo row
       
       do (row) ->
-        
         row.click (event) ->
-          
-          if row.data 'expand'
-            (row.data 'expand').remove()
-            (row.data 'expand', null)
-          else
-            event.preventDefault()
-            socket.emit 'files', enrolment, (error, files) ->
-              
-              return console.log error if error?
-              
-              table = $ '<table>'
-              
-              for key, file of files
-                
-                console.log file
-                
-                fileRow = $ '<tr>'
-                fileRow.appendTo table
-                
-                thumbCell = $ '<td>'
-                thumbCell.appendTo fileRow
-                thumb = $ '<img>'
-                thumb.attr src: file.src
-                thumb.css 'max-width': 200, 'max-height': 200
-                thumb.appendTo thumbCell
-              
-              wrapper = $ '<tr>'
-              wrapper.append table
-              
-              row.after wrapper
-              
-              row.data 'expand', wrapper
+          event.preventDefault()
+          inspectEnrolment enrolment
     
     return
   
@@ -314,10 +287,238 @@ $ ->
       
       update()
   
-  # intakes
-  
-  socket.emit 'get', 'intakes', (error, intakes) ->
+  # intakes / locations
+  async.map ['intakes', 'locations'], (key, callback) ->
+    socket.emit 'get', key, (error, records) ->
+      return callback error if error?
+      db[key].entities = records
+      callback null
+  , (error) ->
     
-    db.intakes.entities = intakes
+    console.log error if error?
+    
+    for key, intake of db.intakes.entities
+      intake.location = _.find db.locations.entities, (location) ->
+        location.entity_id is intake.location_id
     
     syncEnrolments()
+  
+  inspectEnrolment = (enrolment) ->
+    
+    enrolmentsList.hide()
+    
+    enrolmentView = $ '<div>'
+    enrolmentView.appendTo dom
+    
+    back = $ '<a href="#">back</a>'
+    back.appendTo enrolmentView
+    back.click (event) ->
+      enrolmentView.remove()
+      enrolmentsList.show()
+    
+    tabs = [
+      {key: 'details', label: 'Personal Details', active: yes}
+      {key: 'course', label: 'Intake & Location'}
+      {key: 'documents', label: 'Documents'}
+      {key: 'payment', label: 'Payment'}
+    ]
+    
+    nav = $ """<ul class="nav nav-tabs">"""
+    nav.appendTo enrolmentView
+    
+    for tab in tabs then do (tab) ->
+      li = $ """
+      <li data-tabkey="#{tab.key}">
+        <a href="##{tab.key}">
+        #{tab.label}
+        <span class="badge"></span>
+        </a>
+      </li>
+      """
+      li.addClass 'active' if tab.active
+      li.appendTo nav
+      
+      do (li) ->
+        
+        li.click ->
+          nav.find('li').removeClass 'active'
+          li.addClass 'active'
+          ($ '[data-tab]').hide()
+          ($ "[data-tab=#{tab.key}]").show()
+    
+    form = $ '<form class="form-horizontal" data-tab="details">'
+    form.appendTo enrolmentView
+    
+    row = $ """
+    <div class="row-fluid">
+    """
+    row.appendTo form
+    
+    left = $ """<div class="span6">"""
+    left.appendTo row
+    right = $ """<div class="span6">"""
+    right.appendTo row
+    
+    formify = (parent, fieldset, key) ->
+      
+      fieldsetKey = fieldset.key
+      
+      group = $ """
+      <fieldset>
+        <legend>#{_s.humanize key}</legend>
+      </fieldset>
+      """
+      group.find('legend').css 'line-height': '20px', margin: 0
+      group.appendTo parent
+      
+      do (group) ->
+        
+        for fieldKey, field of fieldset.fields
+          control = $ """
+            <div class="control-group">
+              <label class="control-label">#{_s.humanize fieldKey}</label>
+              <div class="controls">
+                <input type="text" placeholder="#{_s.humanize fieldKey}" value="#{enrolment[fieldKey]}">
+              </div>
+            </div>
+          """
+          control.css 'margin-top': 10, 'margin-bottom': 10
+          control.appendTo group
+    
+    for pair, index in _.pairs fieldsets
+      
+      [key, fieldset] = pair
+      
+      continue if key in ['intake', '_id']
+      
+      if index % 2
+        
+        formify left, fieldset, key
+      
+      else
+        
+        formify right, fieldset, key
+    
+    # intake
+    intakeView = $ '<form class="form-horizontal" data-tab="course">'
+    intakeView.appendTo enrolmentView
+    
+    # intake select
+    control = $ """
+      <div class="control-group">
+        <label class="control-label">Intake</label>
+        <div class="controls">
+          <select></select>
+        </div>
+      </div>
+    """
+    control.appendTo intakeView
+    
+    select = control.find 'select'
+    select.append $ '<option value="">'
+    
+    for key, intake of db.intakes.entities
+      option = $ "<option>"
+      option.attr value: intake.entity_id
+      option.text intake.name
+      option.appendTo select
+    
+    select.val enrolment.intake.entity_id
+    
+    # intake
+    if enrolment.intake?
+      
+      table = $ '<table class="table table-striped table-hover table-condensed">'
+      table.appendTo intakeView
+      
+      tbody = $ '<tbody>'
+      tbody.appendTo table
+      
+      for key in ['name', 'date', 'enrolled']
+        
+        value = enrolment.intake[key]
+        
+        if key is 'date'
+          value = (moment value).format 'LLL'
+        
+        row = $ """
+        <tr>
+          <td>#{_s.humanize key}</td>
+          <td>#{value}</td>
+        </tr>
+        """
+        row.appendTo tbody
+      
+      # location
+      if enrolment.intake?.location?
+        
+        row = $ """
+        <tr>
+          <td>Location</td>
+        </tr>
+        """
+        row.appendTo tbody
+        
+        parent = $ '<td>'
+        parent.appendTo row
+        
+        table = $ '<table class="table table-striped table-hover table-condensed">'
+        table.appendTo parent
+        
+        tbody = $ '<tbody>'
+        tbody.appendTo table
+        
+        for key in ['name', 'address', 'suburb', 'state']
+          
+          value = enrolment.intake.location[key]
+          
+          row = $ """
+          <tr>
+            <td>#{_s.humanize key}</td>
+            <td>#{value}</td>
+          </tr>
+          """
+          row.appendTo tbody
+    
+    # documents
+    documentsView = $ '<ul class="thumbnails" data-tab="documents" style="display: none;">'
+    documentsView.appendTo enrolmentView
+    
+    socket.emit 'files', enrolment, (error, files) ->
+      
+      if error?
+        ($ '[data-tabkey=documents]').hide()
+        console.log error
+        return
+      
+      ($ '[data-tabkey=documents] .badge').text _.size files
+      
+      for key, file of files
+        thumb = $ """
+        <li class="span4">
+          <div class="thumbnail">
+            <a href="#{file.src}" target="_blank">
+              <img src="#{file.src}" alt="" />
+            </a>
+            <p>#{file.path}</p>
+          </div>
+        </li>
+        """
+        thumb.appendTo documentsView
+    
+    # payment
+    paymentView = $ """
+    <table class="table table-striped table-hover table-condensed" data-tab="payment">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+    </table>
+    """
+    paymentView.appendTo enrolmentView
+    badge = nav.find 'li[data-tabkey=payment] .badge'
+    badge.removeClass 'badge badge-info'
+    badge.addClass 'label label-important'
+    badge.text 'unpaid'
