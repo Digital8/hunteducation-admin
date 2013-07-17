@@ -1,5 +1,6 @@
 fs = require 'fs'
 
+_ = require 'underscore'
 async = require 'async'
 express = require 'express'
 mongoose = require 'mongoose'
@@ -38,67 +39,109 @@ Set = require './lib/set'
 Enrolment = require './lib/enrolment'
 Location = require './lib/location'
 Intake = require './lib/intake'
+Order = require './lib/order'
+OrderItem = require './lib/order_item'
 
 db = {}
 db.enrolments = new Set type: Enrolment, key: '_id'
 db.locations = new Set type: Location, key: 'entity_id'
 db.intakes = new Set type: Intake, key: 'entity_id'
+db.orders = new Set type: Order, key: 'entity_id'
+db.order_items = new Set type: OrderItem, key: 'item_id'
 
 mongoose.connect "mongodb://#{config.mongo.host}/#{config.mongo.db}"
-
-mysql = (require 'mysql').createConnection config.mysql
-
-mysql.query "SELECT * FROM timetable_location", (error, rows) ->
-  return console.log 'error', error if error?
-  for row in rows
-    db.locations.create row
-
-mysql.query "SELECT * FROM timetable_intake", (error, rows) ->
-  return console.log 'error', error if error?
-  for row in rows
-    db.intakes.create row
 
 models =
   Enrolment: require './lib/mongoose/enrolment'
 
-fetchEnrolments = (callback) ->
+mysql = (require 'mysql').createConnection config.mysql
+
+async.parallel
+  locations: (callback) ->
+    mysql.query "SELECT * FROM timetable_location", (error, rows) ->
+      return console.log 'error', error if error?
+      for row in rows
+        db.locations.create row
+      callback null
+
+  intakes: (callback) ->
+    mysql.query "SELECT * FROM timetable_intake", (error, rows) ->
+      return console.log 'error', error if error?
+      for row in rows
+        db.intakes.create row
+      callback null
   
-  models.Enrolment
-    .where('intake_id').ne(null)
-    .where('uuid').ne(null)
-    .exec (error, enrolments) ->
-      async.map enrolments, (enrolment, callback) ->
-        sql = "SELECT * FROM sales_flat_order WHERE customer_id = ?"
-        
-        mysql.query sql, [enrolment.customer_id], (error, results) ->
-          return callback error if error?
-          return callback null unless results.length
-          enrolment.order = results[0]
-          enrolment.total_due = parseFloat enrolment.order.total_due
-          enrolment.total_paid = parseFloat enrolment.order.total_paid
-          enrolment.paid_at = enrolment.order.updated_at
-          enrolment.paid = enrolment.total_due is 0
+  orders: (callback) ->
+    async.series
+      
+      orders: (callback) ->
+        mysql.query "SELECT * FROM sales_flat_order", (error, rows) ->
+          return console.log 'error', error if error?
+          for row in rows
+            db.orders.create row
           callback null
-      , (error) ->
-        callback error, enrolments
-
-fetchEnrolments (error, enrolments) ->
-  
-  for _enrolment in enrolments
+      
+      order_items: (callback) ->
+        mysql.query "SELECT * FROM sales_flat_order_item", (error, rows) ->
+          return console.log 'error', error if error?
+          for row in rows
+            instance = db.order_items.create row
+            instance.order = db.orders.entities[instance.order_id]
+            console.log instance.enrolment_id, instance.order.entity_id
+          callback null
     
-    instance = db.enrolments.create _enrolment
-
-setInterval ->
+    , callback
+  
+, (error) ->
+  
+  console.log error if error?
+  
+  console.log 'data'
+  
+  fetchEnrolments = (callback) ->
+    
+    models.Enrolment
+      .where('intake_id').ne(null)
+      .where('uuid').ne(null)
+      .exec (error, enrolments) ->
+        
+        async.map enrolments, (enrolment, callback) ->
+          
+          order_item = _.find db.order_items.entities, (order_item) ->
+            return unless order_item.enrolment_id?
+            return unless enrolment.uuid?
+            order_item.enrolment_id is enrolment.uuid
+          
+          if order_item?
+            enrolment.order = order_item.order
+            enrolment.total_due = parseFloat enrolment.order.total_due
+            enrolment.total_paid = parseFloat enrolment.order.total_paid
+            enrolment.total_invoiced = parseFloat enrolment.order.total_invoiced
+            enrolment.paid_at = enrolment.order.updated_at
+            enrolment.paid = enrolment.total_paid is enrolment.total_invoiced
+          
+          callback null
+          
+        , (error) ->
+          callback error, enrolments
   
   fetchEnrolments (error, enrolments) ->
     
     for _enrolment in enrolments
       
-      instance = db.enrolments.new _enrolment
-      
-      db.enrolments.ensure instance
+      instance = db.enrolments.create _enrolment
   
-, 3333
+  setInterval ->
+    
+    fetchEnrolments (error, enrolments) ->
+      
+      for _enrolment in enrolments
+        
+        instance = db.enrolments.new _enrolment
+        
+        db.enrolments.ensure instance
+    
+  , 3333
 
 app.get '/', (req, res, next) ->
   
