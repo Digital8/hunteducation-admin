@@ -136,6 +136,8 @@ $ ->
     # field 'hideit'
   , display: no
   
+  field 'paid'
+  
   enrolmentsList = $ '<div>'
   enrolmentsList.appendTo dom
   
@@ -378,7 +380,7 @@ $ ->
             <div class="control-group">
               <label class="control-label">#{_s.humanize fieldKey}</label>
               <div class="controls">
-                <input type="text" placeholder="#{_s.humanize fieldKey}" value="#{enrolment[fieldKey]}">
+                <input type="text" placeholder="#{_s.humanize fieldKey}" value="#{enrolment[fieldKey]}" readonly="readonly">
               </div>
             </div>
           """
@@ -408,7 +410,7 @@ $ ->
       <div class="control-group">
         <label class="control-label">Intake</label>
         <div class="controls">
-          <select></select>
+          <select disabled="disabled"></select>
         </div>
       </div>
     """
@@ -520,5 +522,17 @@ $ ->
     paymentView.appendTo enrolmentView
     badge = nav.find 'li[data-tabkey=payment] .badge'
     badge.removeClass 'badge badge-info'
-    badge.addClass 'label label-important'
-    badge.text 'unpaid'
+    
+    if enrolment.paid
+      badge.addClass 'label label-info'
+      badge.text 'paid'
+      
+      paymentView.append """
+      <tr>
+        <td>#{(moment enrolment.paid_at).format 'L'}</td>
+        <td>#{enrolment.total_paid}</td>
+      </tr>
+      """
+    else
+      badge.addClass 'label label-important'
+      badge.text 'unpaid'

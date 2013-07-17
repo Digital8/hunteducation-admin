@@ -1,5 +1,6 @@
 fs = require 'fs'
 
+async = require 'async'
 express = require 'express'
 mongoose = require 'mongoose'
 optimist = require 'optimist'
@@ -65,7 +66,20 @@ fetchEnrolments = (callback) ->
   models.Enrolment
     .where('intake_id').ne(null)
     .where('uuid').ne(null)
-    .exec callback
+    .exec (error, enrolments) ->
+      async.map enrolments, (enrolment, callback) ->
+        sql = "SELECT * FROM sales_flat_order WHERE customer_email = ?"
+        mysql.query sql, [enrolment.email], (error, results) ->
+          return callback error if error?
+          return callback null unless results.length
+          enrolment.order = results[0]
+          enrolment.total_due = parseFloat enrolment.order.total_due
+          enrolment.total_paid = parseFloat enrolment.order.total_paid
+          enrolment.paid_at = enrolment.order.updated_at
+          enrolment.paid = enrolment.total_due is 0
+          callback null
+      , (error) ->
+        callback error, enrolments
 
 fetchEnrolments (error, enrolments) ->
   
