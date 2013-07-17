@@ -87,7 +87,6 @@ async.parallel
           for row in rows
             instance = db.order_items.create row
             instance.order = db.orders.entities[instance.order_id]
-            console.log instance.enrolment_id, instance.order.entity_id
           callback null
     
     , callback
@@ -95,8 +94,6 @@ async.parallel
 , (error) ->
   
   console.log error if error?
-  
-  console.log 'data'
   
   fetchEnrolments = (callback) ->
     
@@ -166,8 +163,6 @@ io.sockets.on 'connection', (socket) ->
     callback null, db[key]?.entities
   
   socket.on 'files', (enrolment, callback) ->
-    
-    console.log enrolment
     
     emailHash = uuid.v5 ns: '1bf34ef3-a7f8-4dec-aee2-eef4d9b89ccb', data: enrolment.email
     
