@@ -31,6 +31,8 @@ $ ->
     # set.key = key # wtf
     set.fields = {}
     
+    set.tags ?= []
+    
     callback (key, fieldArgs = {}) ->
       map = fieldArgs
       map.key = key
@@ -114,7 +116,7 @@ $ ->
       
       field "#{key}-education-course-name"
       field "#{key}-education-institute"
-    , display: no
+    , display: no, tags: ['education']
   
   fieldset 'assessment', (field) ->
     field 'qualification-assessment'
@@ -320,6 +322,7 @@ $ ->
     
     tabs = [
       {key: 'details', label: 'Personal Details', active: yes}
+      {key: 'education', label: 'Education'}
       {key: 'course', label: 'Intake & Location'}
       {key: 'documents', label: 'Documents'}
       {key: 'payment', label: 'Payment'}
@@ -380,7 +383,7 @@ $ ->
             <div class="control-group">
               <label class="control-label">#{_s.humanize fieldKey}</label>
               <div class="controls">
-                <input type="text" placeholder="#{_s.humanize fieldKey}" value="#{enrolment[fieldKey]}" readonly="readonly">
+                <input type="text" value="#{if enrolment[fieldKey]? then enrolment[fieldKey] else ''}" readonly="readonly">
               </div>
             </div>
           """
@@ -391,9 +394,41 @@ $ ->
       
       [key, fieldset] = pair
       
-      continue if key in ['intake', '_id']
+      continue if key in ['intake', '_id', 'paid']
       
-      if index % 2
+      continue if 'education' in fieldset.tags
+      
+      if (index % 2) is 0
+        
+        formify left, fieldset, key
+      
+      else
+        
+        formify right, fieldset, key
+    
+    # education
+    form = $ '<form class="form-horizontal" data-tab="education">'
+    form.appendTo enrolmentView
+    
+    row = $ """
+    <div class="row-fluid">
+    """
+    row.appendTo form
+    
+    left = $ """<div class="span6">"""
+    left.appendTo row
+    right = $ """<div class="span6">"""
+    right.appendTo row
+    
+    for pair, index in _.pairs fieldsets
+      
+      [key, fieldset] = pair
+      
+      continue if key in ['intake', '_id', 'paid']
+      
+      continue unless 'education' in fieldset.tags
+      
+      if (index % 2) is 0
         
         formify left, fieldset, key
       
@@ -536,3 +571,6 @@ $ ->
     else
       badge.addClass 'label label-important'
       badge.text 'unpaid'
+    
+    # activate details tab
+    nav.find('[data-tabkey=details]').click()

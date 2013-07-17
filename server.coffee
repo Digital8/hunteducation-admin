@@ -68,8 +68,9 @@ fetchEnrolments = (callback) ->
     .where('uuid').ne(null)
     .exec (error, enrolments) ->
       async.map enrolments, (enrolment, callback) ->
-        sql = "SELECT * FROM sales_flat_order WHERE customer_email = ?"
-        mysql.query sql, [enrolment.email], (error, results) ->
+        sql = "SELECT * FROM sales_flat_order WHERE customer_id = ?"
+        
+        mysql.query sql, [enrolment.customer_id], (error, results) ->
           return callback error if error?
           return callback null unless results.length
           enrolment.order = results[0]
